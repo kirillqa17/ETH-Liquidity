@@ -4,10 +4,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def connect_to_blockchain():
-    infura_url = os.getenv("INFURA_URL")
-    web3 = Web3(Web3.HTTPProvider(infura_url))
-    if web3.isConnected():
-        return web3
-    else:
-        raise Exception("Не удалось подключиться к Ethereum узлу")
+# Подключение к Ethereum
+INFURA_URL = os.getenv("INFURA_URL")
+PRIVATE_KEY = os.getenv("PRIVATE_KEY")
+WALLET_ADDRESS = os.getenv("WALLET_ADDRESS")
+
+web3 = Web3(Web3.HTTPProvider(INFURA_URL))
+
+if not web3.isConnected():
+    raise ConnectionError("Не удалось подключиться к Ethereum узлу.")
+
+def get_web3():
+    """Возвращает объект Web3 для взаимодействия с блокчейном."""
+    return web3
+
+def get_wallet_info():
+    """Возвращает кошелек и приватный ключ."""
+    return web3.toChecksumAddress(WALLET_ADDRESS), PRIVATE_KEY
