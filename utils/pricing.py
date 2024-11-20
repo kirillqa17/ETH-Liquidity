@@ -1,4 +1,3 @@
-from web3 import Web3
 from blockchain import get_web3
 
 # Chainlink Price Feed ETH/USD
