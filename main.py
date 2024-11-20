@@ -1,7 +1,7 @@
 import time
 import os
 from dotenv import load_dotenv
-from utils.blockchain import get_web3, get_wallet_info
+from utils.blockchain import get_web3, get_wallet_info_from_file
 from utils.pricing import get_eth_price
 from utils.rebalance import should_rebalance, calculate_new_range, remove_liquidity, add_liquidity
 from utils.logger import setup_logger
@@ -29,9 +29,10 @@ def main():
     """
     Основной цикл работы ребалансировщика.
     """
+
     print("Запуск ребалансировщика...")
     web3 = get_web3()
-    wallets = get_wallet_info()
+    wallets = get_wallet_info_from_file()
 
     # Создаём логгеры для каждого кошелька
     loggers = {address: create_logger(address) for address, _ in wallets}
@@ -53,13 +54,13 @@ def main():
                     loggers[wallet_address].info("Ребалансировка начата...")
 
                     # Удаление текущей ликвидности
-                    remove_liquidity(wallet_address, private_key)
+                    remove_liquidity(web3, wallet_address, private_key)
 
                     # Расчёт нового диапазона
                     new_range_lower, new_range_upper = calculate_new_range(current_price, RANGE_WIDTH)
 
                     # Добавление ликвидности с новым диапазоном
-                    add_liquidity(wallet_address, private_key, new_range_lower, new_range_upper)
+                    add_liquidity(web3, wallet_address, private_key, new_range_lower, new_range_upper)
 
                     # Обновление глобальных переменных диапазона
                     RANGE_LOWER, RANGE_HIGHER = new_range_lower, new_range_upper
