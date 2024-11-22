@@ -9,7 +9,8 @@ pip install -r requirements.txt
 Пример содержимого файла:
 
 <PRIVATE_KEY_1>
-<PRIVATE_KEY_2>'
+<PRIVATE_KEY_2>
+  
 Если ключ зашифрован (Base64):
 
 <ENCRYPTED_PRIVATE_KEY_1>
