@@ -8,12 +8,12 @@ pip install -r requirements.txt
 Добавьте приватные ключи кошельков в файл wallets.txt.
 Пример содержимого файла:
 
-<PRIVATE_KEY_1>
-<PRIVATE_KEY_2>
+<PRIVATE_KEY_1>'\n'
+<PRIVATE_KEY_2>'\n'
 Если ключ зашифрован (Base64):
 
-<ENCRYPTED_PRIVATE_KEY_1>
-<ENCRYPTED_PRIVATE_KEY_2>
+<ENCRYPTED_PRIVATE_KEY_1>'\n'
+<ENCRYPTED_PRIVATE_KEY_2>'\n'
 Если ключи зашифрованы, программа запросит пароль при запуске.
 
 3. Настройте .env файл
