@@ -1,7 +1,8 @@
-from blockchain import get_web3
-
+from utils.blockchain import get_web3
+from web3 import Web3
 # Chainlink Price Feed ETH/USD
-CHAINLINK_PRICE_FEED = "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419"
+# Mainnet 0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419
+CHAINLINK_PRICE_FEED = Web3.to_checksum_address("0x694AA1769357215DE4FAC081bf1f309aDC325306")
 CHAINLINK_ABI = [
     {
         "inputs": [],

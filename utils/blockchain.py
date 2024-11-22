@@ -2,6 +2,7 @@ from web3 import Web3
 import os
 import json
 from dotenv import load_dotenv
+from decimal import Decimal
 
 load_dotenv()
 
@@ -22,7 +23,7 @@ def get_web3():
     while attempts < RPC_RETRY_LIMIT:
         try:
             web3 = Web3(Web3.HTTPProvider(rpc_urls[current_rpc_index]))
-            if web3.isConnected():
+            if web3.eth.get_block('latest') != None:
                 return web3
             else:
                 raise ConnectionError("Подключение не удалось.")
@@ -44,40 +45,8 @@ def get_contract(contract_address, abi_path):
     """
     with open(abi_path, 'r') as abi_file:
         abi = json.load(abi_file)
-    contract = web3.eth.contract(address=web3.toChecksumAddress(contract_address), abi=abi)
+    contract = web3.eth.contract(address=web3.to_checksum_address(contract_address), abi=abi)
     return contract
-
-def send_transaction(function, wallet_address, private_key, gas_price_multiplier=1.1):
-    """
-    Отправляет транзакцию в блокчейн с динамическим лимитом газа.
-
-    :param function: Вызов функции контракта.
-    :param wallet_address: Адрес кошелька.
-    :param private_key: Приватный ключ кошелька.
-    :param gas_price_multiplier: Множитель цены газа.
-    :return: Хеш транзакции.
-    """
-    try:
-        # Создание транзакции
-        transaction = function.buildTransaction({
-            'chainId': web3.eth.chain_id,
-            'gasPrice': int(web3.eth.gas_price * gas_price_multiplier),
-            'nonce': web3.eth.getTransactionCount(wallet_address),
-        })
-
-        # Оценка газа
-        estimated_gas = web3.eth.estimate_gas(transaction)
-        transaction['gas'] = int(estimated_gas * 1.2)  # Добавляем запас 20%
-
-        # Подписание транзакции
-        signed_tx = web3.eth.account.sign_transaction(transaction, private_key=private_key)
-
-        # Отправка транзакции
-        tx_hash = web3.eth.sendRawTransaction(signed_tx.rawTransaction)
-        return web3.toHex(tx_hash)
-    except Exception as e:
-        print(f"Ошибка при отправке транзакции: {e}")
-        return None
 
 def get_user_position(position_manager_address, abi_path, user_address):
     """
@@ -121,3 +90,45 @@ def get_position_liquidity(position_manager_address, abi_path, position_id):
     except Exception as e:
         print(f"Ошибка при получении данных позиции: {e}")
         return 0
+
+def get_amounts_from_position(web3, position_manager_address, abi_path, token_id):
+    """
+    Получает amount0 и amount1 для текущей позиции ликвидности.
+
+    :param web3: Экземпляр Web3.
+    :param position_manager_address: Адрес контракта NonfungiblePositionManager.
+    :param abi_path: Путь к файлу ABI.
+    :param token_id: ID позиции NFT.
+    :return: Кортеж (amount0, amount1) в токенах.
+    """
+    try:
+        # Загрузка ABI контракта
+        with open(abi_path, 'r') as abi_file:
+            position_manager_abi = json.load(abi_file)
+
+        # Получение контракта
+        position_manager_contract = web3.eth.contract(
+            address=Web3.to_checksum_address(position_manager_address),
+            abi=position_manager_abi
+        )
+
+        # Получение данных позиции
+        position_data = position_manager_contract.functions.positions(token_id).call()
+
+        # Данные о позиции
+        liquidity = position_data[7]  # Поле `liquidity` в структуре позиции
+
+        # Получение текущей цены (sqrtPriceX96)
+        pool_address = position_manager_contract.functions.pool().call()
+        pool_contract = web3.eth.contract(address=pool_address, abi=position_manager_abi)
+        slot0 = pool_contract.functions.slot0().call()
+        sqrt_price_x96 = slot0[0]  # sqrtPriceX96 из slot0
+
+        # Расчет токенов amount0 и amount1
+        amount0 = Decimal(liquidity) * Decimal(1 / sqrt_price_x96) * (2 ** 96)
+        amount1 = Decimal(liquidity) * Decimal(sqrt_price_x96) / (2 ** 96)
+
+        return float(amount0), float(amount1)
+
+    except Exception as e:
+        raise RuntimeError(f"Ошибка при получении данных позиции: {e}")

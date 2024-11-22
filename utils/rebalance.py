@@ -1,13 +1,13 @@
-from logger import setup_logger
+from utils.logger import setup_logger
+from utils.blockchain import get_contract, get_position_liquidity, get_amounts_from_position
+import os,time
 from web3 import Web3
-from utils.blockchain import get_web3, get_contract, send_transaction, get_position_liquidity
-import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
 # Загрузка ABI и адреса контракта из .env
-POSITION_MANAGER_ABI_PATH = os.path.join('POSITION_MANAGER_ABI_PATH', 'utils/position_manager_abi.json')
+POSITION_MANAGER_ABI_PATH = os.getenv('POSITION_MANAGER_ABI_PATH', 'utils/position_manager_abi.json')
 POSITION_MANAGER_ADDRESS = os.getenv('POSITION_MANAGER_ADDRESS', '0xC36442b4a4522E871399CD717aBDD847Ab11FE88')  # Адрес контракта Uniswap V3 Non-Fungible Position Manager
 
 GAS_LIMIT = int(os.getenv('GAS_LIMIT', 300000))
@@ -58,10 +58,15 @@ def remove_liquidity(web3, wallet_address, private_key, token_id):
     :param token_id: ID позиции NFT на Uniswap.
     """
     logger = setup_logger(wallet_address)
-    logger.info(f"Удаление ликвидности для позиции с ID {token_id} начато.")
     try:
+        # Проверяем, что token_id существует
+        if token_id is None:
+            logger.info(f"Некорректный token_id для {wallet_address}.")
+            return 0
+
         # Получаем контракт
         position_manager = get_contract(POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH)
+        logger.info(f"Удаление ликвидности для позиции с ID {token_id} начато.")
 
         # Подготовка транзакции для вызова функции collect
         collect_txn = position_manager.functions.collect({
@@ -72,16 +77,18 @@ def remove_liquidity(web3, wallet_address, private_key, token_id):
         }).buildTransaction({
             "from": wallet_address,
             "gasPrice": web3.eth.gas_price,
-            "nonce": web3.eth.getTransactionCount(wallet_address)
+            "nonce": web3.eth.get_transaction_count(wallet_address)
         })
 
         # Оценка газа для collect
         estimated_gas = web3.eth.estimate_gas(collect_txn)
         collect_txn['gas'] = int(estimated_gas * 1.2)  # Добавляем запас 20%
 
-        # Отправляем транзакцию collect
-        send_transaction(web3, collect_txn, private_key, GAS_PRICE_MULTIPLIER)
-        logger.info("Комиссии успешно собраны.")
+        # Подписание транзакции collect
+        signed_collect_txn = web3.eth.account.sign_transaction(collect_txn, private_key)
+        # Отправка транзакции collect
+        collect_txn_hash = web3.eth.send_raw_transaction(signed_collect_txn.rawTransaction)
+        logger.info(f"Комиссии успешно собраны. Хеш транзакции: {collect_txn_hash.hex()}")
 
         # Подготовка транзакции для decreaseLiquidity
         liquidity = get_position_liquidity(POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH, token_id)
@@ -94,22 +101,27 @@ def remove_liquidity(web3, wallet_address, private_key, token_id):
         }).buildTransaction({
             "from": wallet_address,
             "gasPrice": web3.eth.gas_price,
-            "nonce": web3.eth.getTransactionCount(wallet_address) + 1
+            "nonce": web3.eth.get_transaction_count(wallet_address) + 1
         })
 
         # Оценка газа для decreaseLiquidity
         estimated_gas = web3.eth.estimate_gas(decrease_liquidity_txn)
         decrease_liquidity_txn['gas'] = int(estimated_gas * 1.2)  # Добавляем запас 20%
 
-        # Отправляем транзакцию decreaseLiquidity
-        send_transaction(web3, decrease_liquidity_txn, private_key, GAS_PRICE_MULTIPLIER)
-        logger.info("Ликвидность успешно удалена.")
+        # Подписание транзакции decreaseLiquidity
+        signed_decrease_liquidity_txn = web3.eth.account.sign_transaction(decrease_liquidity_txn, private_key)
+        # Отправка транзакции decreaseLiquidity
+        decrease_liquidity_txn_hash = web3.eth.send_raw_transaction(signed_decrease_liquidity_txn.rawTransaction)
+        logger.info(f"Ликвидность успешно удалена. Хеш транзакции: {decrease_liquidity_txn_hash.hex()}")
+
+        return 1
     except Exception as e:
         logger.error(f"Ошибка при удалении ликвидности: {e}")
 
 
 
-def add_liquidity(web3, wallet_address, private_key, new_range_lower, new_range_upper, amount0, amount1):
+def add_liquidity(web3, wallet_address, private_key, new_range_lower, new_range_upper, token_id, amount0=None,
+                  amount1=None):
     """
     Добавляет ликвидность в новый диапазон.
     :param web3: Экземпляр Web3 для взаимодействия с блокчейном.
@@ -119,40 +131,56 @@ def add_liquidity(web3, wallet_address, private_key, new_range_lower, new_range_
     :param new_range_upper: Новая верхняя граница диапазона.
     :param amount0: Количество первого токена для добавления.
     :param amount1: Количество второго токена для добавления.
+    :param token_id: ID позиции NFT на Uniswap.
     """
     token0 = '0xC02aaa39b223FE8D0A0e5C4F27eAD9083C756Cc2'  # WETH
     token1 = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'  # USDC
+
     logger = setup_logger(wallet_address)
     logger.info(f"Добавление ликвидности в диапазон {new_range_lower} - {new_range_upper} начато.")
+
     try:
+        # Если amount0 и amount1 не переданы, вычисляем их динамически
+        if amount0 is None or amount1 is None:
+            amount0, amount1 = get_amounts_from_position(web3, POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH,
+                                                         token_id)
+            logger.info(f"Вычислены значения: amount0 = {amount0}, amount1 = {amount1}")
+        else:
+            logger.info(f"Используются переданные значения: amount0 = {amount0}, amount1 = {amount1}")
+
         # Получаем контракт
         position_manager = get_contract(POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH)
-
         # Подготовка транзакции для mint
-        add_liquidity_txn = position_manager.functions.mint({
-            "token0": token0,
-            "token1": token1,
-            "fee": 3000,  # Сборы 0.3%
-            "tickLower": new_range_lower,
-            "tickUpper": new_range_upper,
-            "amount0Desired": amount0,
-            "amount1Desired": amount1,
-            "amount0Min": 0,
-            "amount1Min": 0,
-            "recipient": wallet_address,
-            "deadline": web3.eth.get_block('latest')['timestamp'] + 60
-        }).buildTransaction({
+        params = (
+            Web3.to_checksum_address(token0),
+            Web3.to_checksum_address(token1),
+            3000,
+            int(new_range_lower),
+            int(new_range_upper),
+            Web3.to_wei(amount0, 'ether'),
+            int(amount1 * (10 **6)),
+            0,
+            0,
+            Web3.to_checksum_address(wallet_address),
+            int(time.time()) + 60
+        )
+
+        add_liquidity_txn = position_manager.functions.mint(params).buildTransaction({
             "from": wallet_address,
-            "gasPrice": web3.eth.gas_price,
-            "nonce": web3.eth.getTransactionCount(wallet_address)
+            "value": 0,
+            "gasPrice": web3.eth.gas_price * GAS_PRICE_MULTIPLIER,
+            "nonce": web3.eth.get_transaction_count(wallet_address)
         })
 
         # Оценка газа для mint
         estimated_gas = web3.eth.estimate_gas(add_liquidity_txn)
         add_liquidity_txn['gas'] = int(estimated_gas * 1.2)  # Добавляем запас 20%
 
-        # Отправляем транзакцию mint
-        send_transaction(web3, add_liquidity_txn, private_key, GAS_PRICE_MULTIPLIER)
-        logger.info("Ликвидность успешно добавлена.")
+
+        signed_tx = web3.eth.account.sign_transaction(add_liquidity_txn, private_key=private_key)
+
+        tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+
+        logger.info(f"Ликвидность успешно добавлена. Хэш транзакции: {tx_hash}")
     except Exception as e:
         logger.error(f"Ошибка при добавлении ликвидности: {e}")
