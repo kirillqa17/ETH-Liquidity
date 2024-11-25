@@ -21,7 +21,7 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")  # Уровень логов
 RANGE_LOWER = float(os.getenv("RANGE_LOWER"))  # Нижняя граница диапазона
 RANGE_HIGHER = float(os.getenv("RANGE_HIGHER"))  # Верхняя граница диапазона
 POSITION_MANAGER_ABI_PATH = os.getenv('POSITION_MANAGER_ABI_PATH', 'utils/position_manager_abi.json')
-POSITION_MANAGER_ADDRESS = os.getenv('POSITION_MANAGER_ADDRESS', '0xC36442b4a4522E871399CD717aBDD847Ab11FE88')
+POSITION_MANAGER_ADDRESS = os.getenv('POSITION_MANAGER_ADDRESS', '0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1')
 
 
 def get_wallet_info_from_file(file_path="wallets.txt", password=None):
@@ -75,9 +75,8 @@ def main():
     print("Запуск ребалансировщика...")
     web3 = get_web3()
     current_chain_id = web3.eth.chain_id
-    if current_chain_id != 1:
-        raise ValueError("Вы подключены не к Sepolia. Проверьте RPC!")
-
+    if current_chain_id not in [8453, 1]:
+        raise ValueError("Вы подключены не к поддерживаемой сети. Проверьте RPC!")
     # Спрашиваем у пользователя, шифрованные ли ключи
     encrypted_keys = input("Ваши ключи зашифрованы? (да/нет): ").strip().lower()
     password = None
