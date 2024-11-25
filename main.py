@@ -75,8 +75,8 @@ def main():
     print("Запуск ребалансировщика...")
     web3 = get_web3()
     current_chain_id = web3.eth.chain_id
-    if current_chain_id != 1:
-        raise ValueError("Вы подключены не к Sepolia. Проверьте RPC!")
+    if current_chain_id not in [8453, 1]:
+        raise ValueError("Вы подключены не к поддерживаемой сети. Проверьте RPC!")
 
     # Спрашиваем у пользователя, шифрованные ли ключи
     encrypted_keys = input("Ваши ключи зашифрованы? (да/нет): ").strip().lower()
