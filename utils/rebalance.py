@@ -74,9 +74,9 @@ def remove_liquidity(web3, wallet_address, private_key, token_id):
             "recipient": wallet_address,
             "amount0Max": 2 ** 128 - 1,
             "amount1Max": 2 ** 128 - 1
-        }).buildTransaction({
+        }).build_transaction({
             "from": wallet_address,
-            "gasPrice": web3.eth.gas_price,
+            "gasPrice": int(web3.eth.gas_price),
             "nonce": web3.eth.get_transaction_count(wallet_address)
         })
 
@@ -87,7 +87,7 @@ def remove_liquidity(web3, wallet_address, private_key, token_id):
         # Подписание транзакции collect
         signed_collect_txn = web3.eth.account.sign_transaction(collect_txn, private_key)
         # Отправка транзакции collect
-        collect_txn_hash = web3.eth.send_raw_transaction(signed_collect_txn.rawTransaction)
+        collect_txn_hash = web3.eth.send_raw_transaction(signed_collect_txn.raw_transaction)
         logger.info(f"Комиссии успешно собраны. Хеш транзакции: {collect_txn_hash.hex()}")
 
         # Подготовка транзакции для decreaseLiquidity
@@ -98,9 +98,9 @@ def remove_liquidity(web3, wallet_address, private_key, token_id):
             "amount0Min": 0,
             "amount1Min": 0,
             "deadline": web3.eth.get_block('latest')['timestamp'] + 60
-        }).buildTransaction({
+        }).build_transaction({
             "from": wallet_address,
-            "gasPrice": web3.eth.gas_price,
+            "gasPrice": int(web3.eth.gas_price),
             "nonce": web3.eth.get_transaction_count(wallet_address) + 1
         })
 
@@ -111,7 +111,7 @@ def remove_liquidity(web3, wallet_address, private_key, token_id):
         # Подписание транзакции decreaseLiquidity
         signed_decrease_liquidity_txn = web3.eth.account.sign_transaction(decrease_liquidity_txn, private_key)
         # Отправка транзакции decreaseLiquidity
-        decrease_liquidity_txn_hash = web3.eth.send_raw_transaction(signed_decrease_liquidity_txn.rawTransaction)
+        decrease_liquidity_txn_hash = web3.eth.send_raw_transaction(signed_decrease_liquidity_txn.raw_transaction)
         logger.info(f"Ликвидность успешно удалена. Хеш транзакции: {decrease_liquidity_txn_hash.hex()}")
 
         return 1
@@ -165,10 +165,10 @@ def add_liquidity(web3, wallet_address, private_key, new_range_lower, new_range_
             int(time.time()) + 60
         )
 
-        add_liquidity_txn = position_manager.functions.mint(params).buildTransaction({
+        add_liquidity_txn = position_manager.functions.mint(params).build_transaction({
             "from": wallet_address,
             "value": 0,
-            "gasPrice": web3.eth.gas_price * GAS_PRICE_MULTIPLIER,
+            "gasPrice": int(web3.eth.gas_price * GAS_PRICE_MULTIPLIER),
             "nonce": web3.eth.get_transaction_count(wallet_address)
         })
 
@@ -179,7 +179,7 @@ def add_liquidity(web3, wallet_address, private_key, new_range_lower, new_range_
 
         signed_tx = web3.eth.account.sign_transaction(add_liquidity_txn, private_key=private_key)
 
-        tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
 
         logger.info(f"Ликвидность успешно добавлена. Хэш транзакции: {tx_hash}")
     except Exception as e:
