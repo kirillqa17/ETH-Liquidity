@@ -9,6 +9,8 @@ load_dotenv()
 # Загрузка ABI и адреса контракта из .env
 POSITION_MANAGER_ABI_PATH = os.getenv('POSITION_MANAGER_ABI_PATH', 'utils/position_manager_abi.json')
 POSITION_MANAGER_ADDRESS = os.getenv('POSITION_MANAGER_ADDRESS', '0xC36442b4a4522E871399CD717aBDD847Ab11FE88')  # Адрес контракта Uniswap V3 Non-Fungible Position Manager
+TOKEN0 = os.getenv('TOKEN0', '0xC02aaa39b223FE8D0A0e5C4F27eAD9083C756Cc2')
+TOKEN1 = os.getenv('TOKEN1', '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48')
 
 GAS_LIMIT = int(os.getenv('GAS_LIMIT', 300000))
 GAS_PRICE_MULTIPLIER = float(os.getenv('GAS_PRICE_MULTIPLIER', 1.1))
@@ -43,8 +45,8 @@ def calculate_new_range(current_price, range_width, wallet_address):
     """
     logger = setup_logger(wallet_address)
     center = current_price
-    new_lower = center - range_width / 2
-    new_upper = center + range_width / 2
+    new_lower = int(center - range_width / 2)
+    new_upper = int(center + range_width / 2)
     logger.info(f"Новый диапазон ликвидности: {new_lower} - {new_upper}")
     return new_lower, new_upper
 
@@ -61,7 +63,6 @@ def remove_liquidity(web3, wallet_address, private_key, token_id):
     try:
         # Проверяем, что token_id существует
         if token_id is None:
-            logger.info(f"Некорректный token_id для {wallet_address}.")
             return 0
 
         # Получаем контракт
@@ -133,8 +134,8 @@ def add_liquidity(web3, wallet_address, private_key, new_range_lower, new_range_
     :param amount1: Количество второго токена для добавления.
     :param token_id: ID позиции NFT на Uniswap.
     """
-    token0 = '0xC02aaa39b223FE8D0A0e5C4F27eAD9083C756Cc2'  # WETH
-    token1 = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'  # USDC
+    token0 = TOKEN0  # WETH
+    token1 = TOKEN1  # USDC
 
     logger = setup_logger(wallet_address)
     logger.info(f"Добавление ликвидности в диапазон {new_range_lower} - {new_range_upper} начато.")
@@ -155,8 +156,8 @@ def add_liquidity(web3, wallet_address, private_key, new_range_lower, new_range_
             Web3.to_checksum_address(token0),
             Web3.to_checksum_address(token1),
             3000,
-            int(new_range_lower),
-            int(new_range_upper),
+            new_range_lower,
+            new_range_upper,
             Web3.to_wei(amount0, 'ether'),
             int(amount1 * (10 **6)),
             0,

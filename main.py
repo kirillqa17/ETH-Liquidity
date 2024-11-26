@@ -1,6 +1,7 @@
 import time
 from web3 import Web3
 import os
+from getpass import getpass
 from dotenv import load_dotenv
 from utils.blockchain import get_web3, get_user_position
 from utils.pricing import get_eth_price
@@ -44,21 +45,27 @@ def get_wallet_info_from_file(file_path="wallets.txt", password=None):
             line = line.strip()
             if not line:
                 continue
-            while True:
-                try:
-                    if is_base64(line):
-                        if not password:
-                            raise ValueError("Обнаружен зашифрованный ключ, но пароль не предоставлен.")
-                        private_key = decrypt_private_key(line, password)
-                    else:
-                        private_key = line
-                    wallet_address = Web3().eth.account.from_key(private_key).address
-                    wallets.append((wallet_address, private_key))
-                    break
-                except Exception as e:
-                    print(f"Ошибка обработки строки '{line}': {e}")
-                    password = input("Введите правильный пароль для расшифровки: ").strip()
+
+            try:
+                # Проверяем, является ли строка base64-зашифрованной
+                if is_base64(line):
+                    # Зашифрованный ключ
+                    if not password:
+                                   #getpass
+                        password = input("Введите пароль для расшифровки: ").strip()
+                    private_key = decrypt_private_key(line, password)
+                else:
+                    # Незашифрованный ключ
+                    private_key = line
+
+                # Получаем адрес кошелька из приватного ключа
+                wallet_address = Web3().eth.account.from_key(private_key).address
+                wallets.append((wallet_address, private_key))
+            except Exception as e:
+                print(f"Ошибка обработки строки '{line}': {e}")
+
     return wallets
+
 
 
 # Создаем логгер для работы с кошельками
@@ -78,15 +85,9 @@ def main():
     if current_chain_id not in [8453, 1]:
         raise ValueError("Вы подключены не к поддерживаемой сети. Проверьте RPC!")
 
-    # Спрашиваем у пользователя, шифрованные ли ключи
-    encrypted_keys = input("Ваши ключи зашифрованы? (да/нет): ").strip().lower()
-    password = None
-    if encrypted_keys in ["да", "yes", "y", "1"]:
-        password = input("Введите пароль для расшифровки: ").strip()
 
     # Считываем кошельки
-    wallets = get_wallet_info_from_file(password=password)
-
+    wallets = get_wallet_info_from_file()
     # Создаём логгеры для каждого кошелька
     loggers = {address: create_logger(address) for address, _ in wallets}
 
