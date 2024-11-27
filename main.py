@@ -3,7 +3,7 @@ from web3 import Web3
 import os
 from getpass import getpass
 from dotenv import load_dotenv
-from utils.blockchain import get_web3, get_user_position
+from utils.blockchain import get_web3, get_user_position, get_position_liquidity
 from utils.pricing import get_eth_price
 from utils.rebalance import should_rebalance, calculate_new_range, remove_liquidity, add_liquidity
 from utils.logger import setup_logger
@@ -109,7 +109,7 @@ def main():
                     loggers[wallet_address].info("Ребалансировка начата...")
                     token_id = get_user_position(POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH, wallet_address)
                     # Удаление текущей ликвидности
-                    if not (remove_liquidity(web3, wallet_address, private_key, token_id)):
+                    if not (get_position_liquidity(POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH, token_id)):
                         user_answer = input(
                             f"У вас нет текущей ликвидности на кошельке {wallet_address}, желаете, чтобы ее добавил бот? (да/нет): ").strip().lower()
                         if user_answer in ["да", "yes", "y", "1"]:
@@ -129,6 +129,8 @@ def main():
                             loggers[wallet_address].error(
                                 f"Ошибка для кошелька {wallet_address}: Нет текущей ликвидности")
                             continue
+                    else:
+                        remove_liquidity(web3, wallet_address, private_key, token_id)
                     # Расчёт нового диапазона
                     new_range_lower, new_range_upper = calculate_new_range(current_price, RANGE_WIDTH, wallet_address)
                     if amount0 == None and amount1 == None:

@@ -1,5 +1,5 @@
 from utils.logger import setup_logger
-from utils.blockchain import get_contract, get_position_liquidity, get_amounts_from_position
+from utils.blockchain import get_contract, get_position_liquidity
 import os,time
 from web3 import Web3
 from dotenv import load_dotenv
@@ -11,6 +11,9 @@ POSITION_MANAGER_ABI_PATH = os.getenv('POSITION_MANAGER_ABI_PATH', 'utils/positi
 POSITION_MANAGER_ADDRESS = os.getenv('POSITION_MANAGER_ADDRESS', '0xC36442b4a4522E871399CD717aBDD847Ab11FE88')  # Адрес контракта Uniswap V3 Non-Fungible Position Manager
 TOKEN0 = os.getenv('TOKEN0', '0xC02aaa39b223FE8D0A0e5C4F27eAD9083C756Cc2')
 TOKEN1 = os.getenv('TOKEN1', '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48')
+
+AMOUNT0 = float(os.getenv('AMOUNT0'))
+AMOUNT1 = float(os.getenv('AMOUNT1'))
 
 GAS_LIMIT = int(os.getenv('GAS_LIMIT', 300000))
 GAS_PRICE_MULTIPLIER = float(os.getenv('GAS_PRICE_MULTIPLIER', 1.1))
@@ -61,9 +64,6 @@ def remove_liquidity(web3, wallet_address, private_key, token_id):
     """
     logger = setup_logger(wallet_address)
     try:
-        # Проверяем, что token_id существует
-        if token_id is None:
-            return 0
 
         # Получаем контракт
         position_manager = get_contract(POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH)
@@ -113,11 +113,11 @@ def remove_liquidity(web3, wallet_address, private_key, token_id):
         signed_decrease_liquidity_txn = web3.eth.account.sign_transaction(decrease_liquidity_txn, private_key)
         # Отправка транзакции decreaseLiquidity
         decrease_liquidity_txn_hash = web3.eth.send_raw_transaction(signed_decrease_liquidity_txn.raw_transaction)
-        logger.info(f"Ликвидность успешно удалена. Хеш транзакции: {decrease_liquidity_txn_hash.hex()}")
+        logger.info(f"Ликвидность успешно удалена для кошелька {wallet_address}. Хеш транзакции: {decrease_liquidity_txn_hash.hex()}")
 
         return 1
     except Exception as e:
-        logger.error(f"Ошибка при удалении ликвидности: {e}")
+        logger.error(f"Ошибка при удалении ликвидности для кошелька {wallet_address}: {e}")
 
 
 
@@ -143,11 +143,10 @@ def add_liquidity(web3, wallet_address, private_key, new_range_lower, new_range_
     try:
         # Если amount0 и amount1 не переданы, вычисляем их динамически
         if amount0 is None or amount1 is None:
-            amount0, amount1 = get_amounts_from_position(web3, POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH,
-                                                         token_id)
-            logger.info(f"Вычислены значения: amount0 = {amount0}, amount1 = {amount1}")
+            amount0, amount1 = AMOUNT0, AMOUNT1
+            logger.info(f"Вычислены значения для кошелька {wallet_address}: amount0 = {amount0}, amount1 = {amount1}")
         else:
-            logger.info(f"Используются переданные значения: amount0 = {amount0}, amount1 = {amount1}")
+            logger.info(f"Используются переданные значения для кошелька {wallet_address}: amount0 = {amount0}, amount1 = {amount1}")
 
         # Получаем контракт
         position_manager = get_contract(POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH)
@@ -182,6 +181,6 @@ def add_liquidity(web3, wallet_address, private_key, new_range_lower, new_range_
 
         tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
 
-        logger.info(f"Ликвидность успешно добавлена. Хэш транзакции: {tx_hash}")
+        logger.info(f"Ликвидность успешно добавлена для кошелька {wallet_address}. Хэш транзакции: {tx_hash}")
     except Exception as e:
-        logger.error(f"Ошибка при добавлении ликвидности: {e}")
+        logger.error(f"Ошибка при добавлении ликвидности для кошелька {wallet_address}: {e}")
