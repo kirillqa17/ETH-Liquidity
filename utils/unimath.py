@@ -10,9 +10,11 @@ def price_to_tick(price):
     :param price: Цена
     :return: Тик
     """
+
     price = price * 10 **(-12)
     tick = math.floor(math.log(price, 1.0001))
-    return tick
+    rounded_tick = round(tick / TICK_SPACING) * TICK_SPACING
+    return rounded_tick
 
 
 def tick_to_price(tick):
@@ -57,5 +59,3 @@ def eth_to_usdc(lower_price, upper_price, eth_price, eth_amount):
     L = get_liquidity_0(eth_amount, sp, sb)
     y = calculate_y(L, sp, sa, sb)
     return y
-
-print(price_to_tick(3700))

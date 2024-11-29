@@ -161,7 +161,7 @@ def add_liquidity(web3, wallet_address, private_key, new_range_lower, new_range_
             Web3.to_checksum_address(token0),
             Web3.to_checksum_address(token1),
             3000,
-            -194710,
+            -194700,
             -194160,
             Web3.to_wei(amount0, 'ether'),
             int(amount1 * (10**6)),
