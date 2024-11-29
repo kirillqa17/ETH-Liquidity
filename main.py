@@ -116,14 +116,11 @@ def main():
                             try:
                                 user_amount0 = float(input(
                                     f"Введите amount0(WETH) для кошелька {wallet_address} : ").strip())
-                                user_amount1 = float(input(
-                                    f"Введите amount1(USDC) для кошелька {wallet_address} : ").strip())
 
                                 # Если пользователь не ввел значения, используем авторасчёт
                                 amount0 = float(user_amount0) if user_amount0 else None
-                                amount1 = float(user_amount1) if user_amount1 else None
                             except ValueError as e:
-                                loggers[wallet_address].error(f"Некорректный ввод amount0 или amount1: {e}")
+                                loggers[wallet_address].error(f"Некорректный ввод amount0: {e}")
                                 continue
                         else:
                             loggers[wallet_address].error(
