@@ -130,13 +130,13 @@ def main():
                         remove_liquidity(web3, wallet_address, private_key, token_id)
                     # Расчёт нового диапазона
                     new_range_lower, new_range_upper = calculate_new_range(current_price, RANGE_WIDTH, wallet_address)
-                    if amount0 == None and amount1 == None:
+                    if amount0 == None:
                         # Добавление ликвидности с новым диапазоном с автоматическим amount
-                        add_liquidity(web3, wallet_address, private_key, new_range_lower, new_range_upper, token_id)
+                        add_liquidity(web3, wallet_address, private_key, new_range_lower, new_range_upper)
                     else:
                         # Добавление ликвидности с новым диапазоном с ручным вводом amount
-                        add_liquidity(web3, wallet_address, private_key, new_range_lower, new_range_upper, token_id,
-                                      amount0, amount1)
+                        add_liquidity(web3, wallet_address, private_key, new_range_lower, new_range_upper,
+                                      amount0)
                     # Обновление глобальных переменных диапазона
                     RANGE_LOWER, RANGE_HIGHER = new_range_lower, new_range_upper
 

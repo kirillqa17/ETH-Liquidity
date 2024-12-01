@@ -38,7 +38,7 @@ def setup_logger(wallet_address, log_folder="logs", log_level="INFO"):
 
         # Настраиваем файл для логов
         log_filename = os.path.join(log_folder, f"{wallet_address}.log")
-        file_handler = logging.FileHandler(log_filename)
+        file_handler = logging.FileHandler(log_filename, 'w', 'utf-8')
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
 

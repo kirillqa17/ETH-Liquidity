@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 import os
 load_dotenv()
 
-CHAINLINK_ADDRESS = os.getenv('CHAINLINK_PRICE_FEED', '0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419')
+CHAINLINK_ADDRESS = os.getenv('CHAINLINK_PRICE_FEED')
 # Chainlink Price Feed ETH/USD
 CHAINLINK_PRICE_FEED = Web3.to_checksum_address(CHAINLINK_ADDRESS)
 CHAINLINK_ABI = [

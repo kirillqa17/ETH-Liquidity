@@ -11,6 +11,9 @@ RPC_URL_2 = os.getenv("RPC_URL_2")
 RPC_URL_3 = os.getenv("RPC_URL_3")
 RPC_RETRY_LIMIT = int(os.getenv("RPC_RETRY_LIMIT", 3))
 
+POSITION_MANAGER_ABI_PATH = os.getenv('POSITION_MANAGER_ABI_PATH', 'utils/position_manager_abi.json')
+POSITION_MANAGER_ADDRESS = os.getenv('POSITION_MANAGER_ADDRESS')
+
 rpc_urls = [RPC_URL_1, RPC_URL_2, RPC_URL_3]
 current_rpc_index = 0
 
