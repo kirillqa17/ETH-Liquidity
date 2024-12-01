@@ -22,7 +22,7 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")  # Уровень логов
 RANGE_LOWER = float(os.getenv("RANGE_LOWER"))  # Нижняя граница диапазона
 RANGE_HIGHER = float(os.getenv("RANGE_HIGHER"))  # Верхняя граница диапазона
 POSITION_MANAGER_ABI_PATH = os.getenv('POSITION_MANAGER_ABI_PATH', 'utils/position_manager_abi.json')
-POSITION_MANAGER_ADDRESS = os.getenv('POSITION_MANAGER_ADDRESS', '0xC36442b4a4522E871399CD717aBDD847Ab11FE88')
+POSITION_MANAGER_ADDRESS = os.getenv('POSITION_MANAGER_ADDRESS')
 
 
 def get_wallet_info_from_file(file_path="wallets.txt", password=None):
@@ -51,8 +51,7 @@ def get_wallet_info_from_file(file_path="wallets.txt", password=None):
                 if is_base64(line):
                     # Зашифрованный ключ
                     if not password:
-                                   #getpass
-                        password = input("Введите пароль для расшифровки: ").strip()
+                        password = getpass("Введите пароль для расшифровки: ").strip()
                     private_key = decrypt_private_key(line, password)
                 else:
                     # Незашифрованный ключ
