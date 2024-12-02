@@ -3,7 +3,7 @@ from web3 import Web3
 import os
 from getpass import getpass
 from dotenv import load_dotenv
-from utils.blockchain import get_web3, get_user_position, get_position_liquidity
+from utils.blockchain import get_web3, get_user_position, get_position_liquidity, check_allowance, approve_token
 from utils.pricing import get_eth_price
 from utils.rebalance import should_rebalance, calculate_new_range, remove_liquidity, add_liquidity
 from utils.logger import setup_logger
@@ -23,6 +23,8 @@ RANGE_LOWER = float(os.getenv("RANGE_LOWER"))  # Нижняя граница д�
 RANGE_HIGHER = float(os.getenv("RANGE_HIGHER"))  # Верхняя граница диапазона
 POSITION_MANAGER_ABI_PATH = os.getenv('POSITION_MANAGER_ABI_PATH', 'utils/position_manager_abi.json')
 POSITION_MANAGER_ADDRESS = os.getenv('POSITION_MANAGER_ADDRESS')
+ERC20_ABI = os.getenv("ERC20_ABI_PATH", 'utils/erc20_abi.json')
+TOKEN1 = os.getenv("TOKEN1")
 
 
 def get_wallet_info_from_file(file_path="wallets.txt", password=None):
@@ -93,6 +95,8 @@ def main():
     while True:
         for wallet_address, private_key in wallets:
             try:
+                if not check_allowance(wallet_address, POSITION_MANAGER_ADDRESS, TOKEN1, ERC20_ABI):
+                    approve_token(wallet_address, private_key, POSITION_MANAGER_ADDRESS, TOKEN1, ERC20_ABI)
                 # Получаем текущую цену ETH
                 current_price = get_eth_price()
                 if current_price is None:
