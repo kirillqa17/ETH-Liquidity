@@ -96,7 +96,8 @@ def main():
         for wallet_address, private_key in wallets:
             try:
                 if not check_allowance(wallet_address, POSITION_MANAGER_ADDRESS, TOKEN1, ERC20_ABI):
-                    approve_token(wallet_address, private_key, POSITION_MANAGER_ADDRESS, TOKEN1, ERC20_ABI)
+                    txn = approve_token(wallet_address, private_key, POSITION_MANAGER_ADDRESS, TOKEN1, ERC20_ABI)
+                    loggers[wallet_address].info(f"Approve отправлена для кошелька {wallet_address} хэш транзакции {txn}")
                 # Получаем текущую цену ETH
                 current_price = get_eth_price()
                 if current_price is None:
@@ -104,7 +105,9 @@ def main():
                         f"Не удалось получить текущую цену. Повтор через {PRICE_CHECK_INTERVAL} секунд.")
                     time.sleep(PRICE_CHECK_INTERVAL)
                     continue
+
                 amount0, amount1 = None, None
+
                 loggers[wallet_address].info(f"Текущая цена ETH: ${current_price}")
 
                 # Проверка необходимости ребалансировки
