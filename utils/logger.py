@@ -12,7 +12,6 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()  # Преобразуем у�
 # Убедимся, что папка для логов существует
 if not os.path.exists(LOG_FOLDER):
     os.makedirs(LOG_FOLDER)
-
 # Функция для настройки логера
 def setup_logger(wallet_address, log_folder="logs", log_level="INFO"):
     """

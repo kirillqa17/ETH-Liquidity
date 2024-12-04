@@ -12,7 +12,6 @@ from utils.pricing import get_eth_price
 from utils.rebalance import should_rebalance, calculate_new_range, remove_liquidity, add_liquidity
 from utils.logger import setup_logger
 from utils.decryption import is_base64, decrypt_private_key, get_password
-
 # Загрузка настроек из .env
 load_dotenv()
 
@@ -124,7 +123,7 @@ def main():
                     loggers[wallet_address].info("Ребалансировка начата...")
                     token_id = get_user_position(POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH, wallet_address)
                     # Удаление текущей ликвидности
-                    if not (get_position_liquidity(POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH, token_id)):
+                    if not (get_position_liquidity(POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH, token_id, wallet_address)):
                         user_answer = input(
                             f"У вас нет текущей ликвидности на кошельке {wallet_address}, желаете, чтобы ее добавил бот? (да/нет): ").strip().lower()
                         if user_answer in ["да", "yes", "y", "1"]:

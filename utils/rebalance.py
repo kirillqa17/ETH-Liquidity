@@ -2,6 +2,8 @@ from utils.logger import setup_logger
 from utils.blockchain import get_contract, get_position_liquidity
 from utils.pricing import get_eth_price
 from utils.unimath import eth_to_usdc, get_ticks_for_range, tick_to_price
+from utils.retry_decorator import retry_on_exception
+
 import os, time
 from web3 import Web3
 from dotenv import load_dotenv
@@ -58,7 +60,7 @@ def calculate_new_range(current_price, range_width, wallet_address):
     logger.info(f"Новый диапазон ликвидности: {new_lower} - {new_upper}")
     return new_lower, new_upper
 
-
+@retry_on_exception()
 def remove_liquidity(web3, wallet_address, private_key, token_id):
     """
     Удаляет ликвидность из текущей позиции.
@@ -69,7 +71,7 @@ def remove_liquidity(web3, wallet_address, private_key, token_id):
     """
     logger = setup_logger(wallet_address)
     try:
-        liquidity = get_position_liquidity(POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH, token_id)
+        liquidity = get_position_liquidity(POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH, token_id, wallet_address)
         # Получаем контракт
         position_manager = get_contract(POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH)
         logger.info(f"Удаление ликвидности для позиции с ID {token_id} начато.")
@@ -90,7 +92,7 @@ def remove_liquidity(web3, wallet_address, private_key, token_id):
         signed_collect_txn = web3.eth.account.sign_transaction(collect_txn, private_key)
         # Отправка транзакции collect
         collect_txn_hash = web3.eth.send_raw_transaction(signed_collect_txn.raw_transaction).hex()
-        # logger.info(f"Комиссии успешно собраны. Хеш транзакции: {collect_txn_hash}")
+        logger.info(f"Комиссии успешно собраны. Хеш транзакции: {collect_txn_hash}")
 
         # Подготовка транзакции для decreaseLiquidity
         decrease_liquidity_txn = position_manager.functions.decreaseLiquidity({
@@ -116,8 +118,9 @@ def remove_liquidity(web3, wallet_address, private_key, token_id):
         return 1
     except Exception as e:
         logger.error(f"Ошибка при удалении ликвидности для кошелька {wallet_address}: {e}")
+        raise
 
-
+@retry_on_exception()
 def add_liquidity(web3, wallet_address, private_key, new_range_lower, new_range_upper, amount0=None):
     """
     Добавляет ликвидность в новый диапазон.
@@ -127,8 +130,6 @@ def add_liquidity(web3, wallet_address, private_key, new_range_lower, new_range_
     :param new_range_lower: Новая нижняя граница диапазона.
     :param new_range_upper: Новая верхняя граница диапазона.
     :param amount0: Количество первого токена для добавления.
-    :param amount1: Количество второго токена для добавления.
-    :param token_id: ID позиции NFT на Uniswap.
     """
     token0 = TOKEN0  # WETH
     token1 = TOKEN1  # USDC
@@ -182,3 +183,4 @@ def add_liquidity(web3, wallet_address, private_key, new_range_lower, new_range_
         logger.info(f"Ликвидность успешно добавлена для кошелька {wallet_address}. Хэш транзакции: {tx_hash}")
     except Exception as e:
         logger.error(f"Ошибка при добавлении ликвидности для кошелька {wallet_address}: {e}")
+        raise

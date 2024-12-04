@@ -1,5 +1,7 @@
 from utils.blockchain import get_web3
 from web3 import Web3
+from utils.retry_decorator import retry_on_exception
+
 from utils.select_chain import load_config
 config = load_config()
 
@@ -19,6 +21,7 @@ CHAINLINK_ABI = [
 web3 = get_web3()
 price_feed = web3.eth.contract(address=CHAINLINK_PRICE_FEED, abi=CHAINLINK_ABI)
 
+@retry_on_exception()
 def get_eth_price():
     """Получает текущую цену ETH через Chainlink."""
     try:
