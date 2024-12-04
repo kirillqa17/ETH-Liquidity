@@ -1,13 +1,17 @@
 import time
 from web3 import Web3
 import os
-from getpass import getpass
 from dotenv import load_dotenv
+from utils.select_chain import select_chain
+
+# Загрузка данных сети
+chain = select_chain()
+
 from utils.blockchain import get_web3, get_user_position, get_position_liquidity, check_allowance, approve_token
 from utils.pricing import get_eth_price
 from utils.rebalance import should_rebalance, calculate_new_range, remove_liquidity, add_liquidity
 from utils.logger import setup_logger
-from utils.decryption import is_base64, decrypt_private_key
+from utils.decryption import is_base64, decrypt_private_key, get_password
 
 # Загрузка настроек из .env
 load_dotenv()
@@ -15,24 +19,24 @@ load_dotenv()
 # Получаем настройки из переменных окружения
 RANGE_WIDTH = float(os.getenv("RANGE_WIDTH", 100))  # Ширина диапазона
 THRESHOLD_PERCENT = float(os.getenv("THRESHOLD_PERCENT", 10)) / 100  # Порог для ребалансировки (в процентах)
-PRICE_CHECK_INTERVAL = int(os.getenv("PRICE_CHECK_INTERVAL", 60))  # Интервал проверки в секундах
+PRICE_CHECK_INTERVAL = int(chain["PRICE_CHECK_INTERVAL"])  # Интервал проверки в секундах
 GAS_PRICE_MULTIPLIER = float(os.getenv("GAS_PRICE_MULTIPLIER", 1.1))  # Коэффициент для газа
 LOG_FOLDER = os.getenv("LOG_FOLDER", "logs")  # Папка для логов
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")  # Уровень логов
 RANGE_LOWER = float(os.getenv("RANGE_LOWER"))  # Нижняя граница диапазона
 RANGE_HIGHER = float(os.getenv("RANGE_HIGHER"))  # Верхняя граница диапазона
 POSITION_MANAGER_ABI_PATH = os.getenv('POSITION_MANAGER_ABI_PATH', 'utils/position_manager_abi.json')
-POSITION_MANAGER_ADDRESS = os.getenv('POSITION_MANAGER_ADDRESS')
+POSITION_MANAGER_ADDRESS = chain['POSITION_MANAGER_ADDRESS']
 ERC20_ABI = os.getenv("ERC20_ABI_PATH", 'utils/erc20_abi.json')
-TOKEN1 = os.getenv("TOKEN1")
+TOKEN1 = chain["TOKEN1"]
 
 
-def get_wallet_info_from_file(file_path="wallets.txt", password=None):
+def get_wallet_info_from_file(file_path="wallets.txt"):
     """
     Считывает информацию о кошельках из файла. Поддерживает как зашифрованные, так и незашифрованные ключи.
+    При обнаружении зашифрованного ключа запрашивает пароль у пользователя. При неверном пароле позволяет повторить ввод.
 
     :param file_path: Путь к файлу с ключами.
-    :param password: Пароль для расшифровки (если требуется).
     :return: Список пар (адрес, приватный ключ).
     """
     wallets = []
@@ -43,18 +47,25 @@ def get_wallet_info_from_file(file_path="wallets.txt", password=None):
         raise ValueError(f"Файл '{file_path}' пуст. Добавьте кошельки в файл.")
 
     with open(file_path, "r") as file:
-        for line in file:
+        for line_num, line in enumerate(file, start=1):
             line = line.strip()
             if not line:
                 continue
 
             try:
-                # Проверяем, является ли строка base64-зашифрованной
                 if is_base64(line):
                     # Зашифрованный ключ
-                    if not password:
-                        password = getpass("Введите пароль для расшифровки: ").strip()
-                    private_key = decrypt_private_key(line, password)
+                    while True:
+                        try:
+                            password = get_password(
+                                f"Введите пароль для расшифровки ключа: ").strip()
+                            private_key = decrypt_private_key(line, password)
+                            break  # Успешно расшифровали, выходим из цикла
+                        except (ValueError, UnicodeDecodeError) as e:
+                            print("Неверный пароль или ошибка расшифровки, попробуйте снова.")
+                        except Exception as e:
+                            print(f"Неожиданная ошибка при расшифровке ключа (строка {line_num}): {e}")
+                            break  # Прерываем цикл при неизвестной ошибке
                 else:
                     # Незашифрованный ключ
                     private_key = line
@@ -63,10 +74,9 @@ def get_wallet_info_from_file(file_path="wallets.txt", password=None):
                 wallet_address = Web3().eth.account.from_key(private_key).address
                 wallets.append((wallet_address, private_key))
             except Exception as e:
-                print(f"Ошибка обработки строки '{line}': {e}")
+                print(f"Ошибка обработки строки {line_num} ('{line}'): {e}")
 
     return wallets
-
 
 
 # Создаем логгер для работы с кошельками
@@ -79,7 +89,6 @@ def main():
     Основной цикл работы ребалансировщика.
     """
     global RANGE_LOWER, RANGE_HIGHER
-
     print("Запуск ребалансировщика...")
     web3 = get_web3()
     current_chain_id = web3.eth.chain_id

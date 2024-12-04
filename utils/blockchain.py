@@ -1,20 +1,21 @@
 from web3 import Web3
 import os
 import json
+from utils.select_chain import load_config
 from dotenv import load_dotenv
 
 load_dotenv()
-
+config = load_config()
 # Подключение к Ethereum
-RPC_URL_1 = os.getenv("RPC_URL_1")
-RPC_URL_2 = os.getenv("RPC_URL_2")
-RPC_URL_3 = os.getenv("RPC_URL_3")
+RPC_URL_1 = config["RPC_URL_1"]
+RPC_URL_2 = config["RPC_URL_2"]
+RPC_URL_3 = config["RPC_URL_3"]
 RPC_RETRY_LIMIT = int(os.getenv("RPC_RETRY_LIMIT", 3))
 
 GAS_LIMIT = os.getenv("GAS_LIMIT")
 GAS_PRICE_MULTIPLIER = os.getenv("GAS_PRICE_MULTIPLIER", 1.1)
 POSITION_MANAGER_ABI_PATH = os.getenv('POSITION_MANAGER_ABI_PATH', 'utils/position_manager_abi.json')
-POSITION_MANAGER_ADDRESS = os.getenv('POSITION_MANAGER_ADDRESS')
+POSITION_MANAGER_ADDRESS = config['POSITION_MANAGER_ADDRESS']
 
 rpc_urls = [RPC_URL_1, RPC_URL_2, RPC_URL_3]
 current_rpc_index = 0

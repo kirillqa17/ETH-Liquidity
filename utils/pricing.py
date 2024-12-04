@@ -1,10 +1,9 @@
 from utils.blockchain import get_web3
 from web3 import Web3
-from dotenv import load_dotenv
-import os
-load_dotenv()
+from utils.select_chain import load_config
+config = load_config()
 
-CHAINLINK_ADDRESS = os.getenv('CHAINLINK_PRICE_FEED')
+CHAINLINK_ADDRESS = config['CHAINLINK_PRICE_FEED']
 # Chainlink Price Feed ETH/USD
 CHAINLINK_PRICE_FEED = Web3.to_checksum_address(CHAINLINK_ADDRESS)
 CHAINLINK_ABI = [

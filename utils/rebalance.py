@@ -5,15 +5,16 @@ from utils.unimath import eth_to_usdc, get_ticks_for_range, tick_to_price
 import os, time
 from web3 import Web3
 from dotenv import load_dotenv
-
+from utils.select_chain import load_config
+config = load_config()
 load_dotenv()
 
 # Загрузка ABI и адреса контракта из .env
 POSITION_MANAGER_ABI_PATH = os.getenv('POSITION_MANAGER_ABI_PATH', 'utils/position_manager_abi.json')
-POSITION_MANAGER_ADDRESS = os.getenv(
-    'POSITION_MANAGER_ADDRESS')  # Адрес контракта Uniswap V3 Non-Fungible Position Manager
-TOKEN0 = os.getenv('TOKEN0')
-TOKEN1 = os.getenv('TOKEN1')
+POSITION_MANAGER_ADDRESS = config[
+    'POSITION_MANAGER_ADDRESS']  # Адрес контракта Uniswap V3 Non-Fungible Position Manager
+TOKEN0 = config['TOKEN0']
+TOKEN1 = config['TOKEN1']
 
 AMOUNT0 = float(os.getenv('AMOUNT0'))
 
