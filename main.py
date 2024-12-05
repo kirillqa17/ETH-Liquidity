@@ -33,7 +33,7 @@ TOKEN1 = chain["TOKEN1"]
 def get_wallet_info_from_file(file_path="wallets.txt"):
     """
     Считывает информацию о кошельках из файла. Поддерживает как зашифрованные, так и незашифрованные ключи.
-    При обнаружении зашифрованного ключа запрашивает пароль у пользователя. При неверном пароле позволяет повторить ввод.
+    Проверяет, зашифрован ли файл, по первой строке. Если да, запрашивает пароль один раз для всех строк.
 
     :param file_path: Путь к файлу с ключами.
     :return: Список пар (адрес, приватный ключ).
@@ -46,25 +46,33 @@ def get_wallet_info_from_file(file_path="wallets.txt"):
         raise ValueError(f"Файл '{file_path}' пуст. Добавьте кошельки в файл.")
 
     with open(file_path, "r") as file:
-        for line_num, line in enumerate(file, start=1):
-            line = line.strip()
-            if not line:
-                continue
+        lines = [line.strip() for line in file if line.strip()]
+        if not lines:
+            raise ValueError(f"Файл '{file_path}' пуст. Добавьте кошельки в файл.")
 
+        # Определяем, зашифрованы ли ключи, по первой строке
+        first_line = lines[0]
+        encrypted = is_base64(first_line)
+
+        if encrypted:
+            # Запрашиваем пароль один раз
+            password = None
+            while True:
+                try:
+                    password = get_password("Введите пароль для расшифровки ключей: ").strip()
+                    # Проверяем пароль на первой строке
+                    decrypt_private_key(first_line, password)
+                    break  # Если расшифровка успешна, выходим из цикла
+                except (ValueError, UnicodeDecodeError):
+                    print("Неверный пароль, попробуйте снова.")
+                except Exception as e:
+                    raise ValueError(f"Ошибка проверки пароля: {e}")
+
+        for line_num, line in enumerate(lines, start=1):
             try:
-                if is_base64(line):
-                    # Зашифрованный ключ
-                    while True:
-                        try:
-                            password = get_password(
-                                f"Введите пароль для расшифровки ключа: ").strip()
-                            private_key = decrypt_private_key(line, password)
-                            break  # Успешно расшифровали, выходим из цикла
-                        except (ValueError, UnicodeDecodeError) as e:
-                            print("Неверный пароль или ошибка расшифровки, попробуйте снова.")
-                        except Exception as e:
-                            print(f"Неожиданная ошибка при расшифровке ключа (строка {line_num}): {e}")
-                            break  # Прерываем цикл при неизвестной ошибке
+                if encrypted:
+                    # Расшифровываем приватный ключ
+                    private_key = decrypt_private_key(line, password)
                 else:
                     # Незашифрованный ключ
                     private_key = line
