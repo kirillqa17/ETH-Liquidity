@@ -22,6 +22,7 @@ POSITION_MANAGER_ADDRESS = config['POSITION_MANAGER_ADDRESS']
 rpc_urls = [RPC_URL_1, RPC_URL_2, RPC_URL_3]
 current_rpc_index = 0
 
+
 # Функция для переключения RPC
 def get_web3():
     """Возвращает объект Web3 для взаимодействия с блокчейном."""
@@ -37,11 +38,14 @@ def get_web3():
         except Exception as e:
             attempts += 1
             current_rpc_index = (current_rpc_index + 1) % len(rpc_urls)
-            print(f"Ошибка подключения: {e}. Переключение на следующий RPC ({rpc_urls[current_rpc_index]}) через 10 секунд.")
+            print(
+                f"Ошибка подключения: {e}. Переключение на следующий RPC ({rpc_urls[current_rpc_index]}) через 10 секунд.")
             time.sleep(10)
     raise ConnectionError("Не удалось подключиться ни к одному из RPC узлов.")
 
+
 web3 = get_web3()
+
 
 def get_contract(contract_address, abi_path):
     """
@@ -55,6 +59,7 @@ def get_contract(contract_address, abi_path):
         abi = json.load(abi_file)
     contract = web3.eth.contract(address=web3.to_checksum_address(contract_address), abi=abi)
     return contract
+
 
 @retry_on_exception()
 def get_user_position(position_manager_address, abi_path, user_address):
@@ -80,6 +85,7 @@ def get_user_position(position_manager_address, abi_path, user_address):
         logger.error(f"Ошибка при получении ликвидности для кошелька {user_address}: {e}")
         raise
 
+
 @retry_on_exception()
 def get_position_liquidity(position_manager_address, abi_path, position_id, wallet_address):
     """
@@ -93,13 +99,16 @@ def get_position_liquidity(position_manager_address, abi_path, position_id, wall
     """
     position_manager = get_contract(position_manager_address, abi_path)
     logger = setup_logger(wallet_address)
-    try:
-        position_data = position_manager.functions.positions(position_id).call()
-        liquidity = position_data[7]  # Ликвидность находится на 7-м месте в структуре
-        return liquidity
-    except Exception as e:
-        logger.error(f"Ошибка при получении ликвидности для кошелька {wallet_address}: {e}")
-        raise
+    if not position_id == None:
+        try:
+            position_data = position_manager.functions.positions(position_id).call()
+            liquidity = position_data[7]  # Ликвидность находится на 7-м месте в структуре
+            return liquidity
+        except Exception as e:
+            logger.error(f"Ошибка при получении ликвидности для кошелька {wallet_address}: {e}")
+            raise
+    else:
+        return 0
 
 @retry_on_exception()
 def check_allowance(wallet_address, position_manager_address, token_address, erc20_abi_path):
@@ -122,6 +131,7 @@ def check_allowance(wallet_address, position_manager_address, token_address, erc
         logger.error(f"Ошибка при проверки разрешений для кошелька {wallet_address}: {e}")
         raise
 
+
 @retry_on_exception()
 def approve_token(wallet_address, private_key, position_manager_address, token_address, erc20_abi_path):
     """
@@ -136,7 +146,7 @@ def approve_token(wallet_address, private_key, position_manager_address, token_a
     """
     logger = setup_logger(wallet_address)
     try:
-        amount_to_approve = 2 ** 256 -1
+        amount_to_approve = 2 ** 256 - 1
         erc20_contract = get_contract(token_address, erc20_abi_path)
         transaction = erc20_contract.functions.approve(
             Web3.to_checksum_address(position_manager_address),
@@ -149,7 +159,7 @@ def approve_token(wallet_address, private_key, position_manager_address, token_a
         })
 
         signed_txn = web3.eth.account.sign_transaction(transaction, private_key)
-        txn_hash = web3.eth.send_raw_transaction(signed_txn.rawTransaction).hex()
+        txn_hash = web3.eth.send_raw_transaction(signed_txn.raw_transaction).hex()
         return txn_hash
     except Exception as e:
         logger.error(f"Ошибка при подтверждении токенов для кошелька {wallet_address}: {e}")
