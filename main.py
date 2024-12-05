@@ -19,7 +19,7 @@ load_dotenv()
 RANGE_WIDTH = float(os.getenv("RANGE_WIDTH", 100))  # Ширина диапазона
 THRESHOLD_PERCENT = float(os.getenv("THRESHOLD_PERCENT", 10)) / 100  # Порог для ребалансировки (в процентах)
 PRICE_CHECK_INTERVAL = int(chain["PRICE_CHECK_INTERVAL"])  # Интервал проверки в секундах
-GAS_PRICE_MULTIPLIER = float(os.getenv("GAS_PRICE_MULTIPLIER", 1.1))  # Коэффициент для газа
+GAS_PRICE_MULTIPLIER = float(os.getenv("GAS_PRICE_MULTIPLIER", 1.2))  # Коэффициент для газа
 LOG_FOLDER = os.getenv("LOG_FOLDER", "logs")  # Папка для логов
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")  # Уровень логов
 RANGE_LOWER = float(os.getenv("RANGE_LOWER"))  # Нижняя граница диапазона
@@ -28,6 +28,7 @@ POSITION_MANAGER_ABI_PATH = os.getenv('POSITION_MANAGER_ABI_PATH', 'utils/positi
 POSITION_MANAGER_ADDRESS = chain['POSITION_MANAGER_ADDRESS']
 ERC20_ABI = os.getenv("ERC20_ABI_PATH", 'utils/erc20_abi.json')
 TOKEN1 = chain["TOKEN1"]
+AMOUNT0 = float(os.getenv('AMOUNT0'))
 
 
 def get_wallet_info_from_file(file_path="wallets.txt"):
@@ -107,12 +108,18 @@ def main():
     wallets = get_wallet_info_from_file()
     # Создаём логгеры для каждого кошелька
     loggers = {address: create_logger(address) for address, _ in wallets}
-    for wallet_address, private_key in wallets:
-        if not check_allowance(wallet_address, POSITION_MANAGER_ADDRESS, TOKEN1, ERC20_ABI):
-            txn = approve_token(wallet_address, private_key, POSITION_MANAGER_ADDRESS, TOKEN1, ERC20_ABI)
-            loggers[wallet_address].info(f"Approve отправлена для кошелька {wallet_address} хэш транзакции {txn}")
 
+    for wallet_address, private_key in wallets:
+        try:
+            if not check_allowance(wallet_address, POSITION_MANAGER_ADDRESS, TOKEN1, ERC20_ABI):
+                txn = approve_token(wallet_address, private_key, POSITION_MANAGER_ADDRESS, TOKEN1, ERC20_ABI)
+                loggers[wallet_address].info(f"Approve отправлена для кошелька {wallet_address} хэш транзакции {txn}")
+
+        except Exception as e:
+            loggers[wallet_address].error("Скрипт не будет работать без approve для всех кошельков!")
+            exit(1)
     first_wallet = wallets[0][0]
+
     while True:
         current_price = None
         try:
@@ -141,15 +148,7 @@ def main():
                         user_answer = input(
                             f"У вас нет текущей ликвидности на кошельке {wallet_address}, желаете, чтобы ее добавил бот? (да/нет): ").strip().lower()
                         if user_answer in ["да", "yes", "y", "1"]:
-                            try:
-                                user_amount0 = float(input(
-                                    f"Введите amount0(WETH) для кошелька {wallet_address} : ").strip())
-
-                                # Если пользователь не ввел значения, используем авторасчёт
-                                amount0 = float(user_amount0) if user_amount0 else None
-                            except ValueError as e:
-                                loggers[wallet_address].error(f"Некорректный ввод amount0: {e}")
-                                continue
+                            amount0 = AMOUNT0
                         else:
                             loggers[wallet_address].error(
                                 f"Ошибка для кошелька {wallet_address}: Нет текущей ликвидности")

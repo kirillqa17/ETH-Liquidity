@@ -20,8 +20,7 @@ TOKEN1 = config['TOKEN1']
 
 AMOUNT0 = float(os.getenv('AMOUNT0'))
 
-GAS_LIMIT = int(os.getenv('GAS_LIMIT'))
-GAS_PRICE_MULTIPLIER = float(os.getenv('GAS_PRICE_MULTIPLIER', 1.1))
+GAS_PRICE_MULTIPLIER = float(os.getenv('GAS_PRICE_MULTIPLIER', 1.2))
 
 
 def should_rebalance(current_price, range_lower, range_upper, threshold_percent, wallet_address):
@@ -73,28 +72,31 @@ def collect_fees(web3, wallet_address, private_key, token_id):
     try:
         # Получаем контракт
         position_manager = get_contract(POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH)
-        logger.info(f"Удаление ликвидности для позиции с ID {token_id} начато.")
+        logger.info(f"Сбор комиссий для позиции с ID {token_id} начато.")
         # Подготовка транзакции для вызова функции collect
-        collect_txn = position_manager.functions.collect({
+        params = {
             "tokenId": token_id,
             "recipient": wallet_address,
             "amount0Max": 2 ** 128 - 1,
             "amount1Max": 2 ** 128 - 1
-        }).build_transaction({
+        }
+        gas_estimate = int(position_manager.functions.collect(params).estimate_gas({
+            "from": wallet_address
+        }) * GAS_PRICE_MULTIPLIER)
+        collect_txn = position_manager.functions.collect(params).build_transaction({
             "from": wallet_address,
-            "gasPrice": int(web3.eth.gas_price * GAS_PRICE_MULTIPLIER),
-            "gas": GAS_LIMIT,
+            "gasPrice": web3.eth.gas_price,
+            "gas": gas_estimate,
             "nonce": web3.eth.get_transaction_count(wallet_address)
         })
-
         # Подписание транзакции collect
         signed_collect_txn = web3.eth.account.sign_transaction(collect_txn, private_key)
         # Отправка транзакции collect
         collect_txn_hash = web3.eth.send_raw_transaction(signed_collect_txn.raw_transaction).hex()
-        logger.info(f"Комиссии успешно собраны. Хеш транзакции: {collect_txn_hash}")
+        logger.info(f"Комиссии успешно собраны для кошелька {wallet_address}. Хеш транзакции: {collect_txn_hash}")
         return 1
     except Exception as e:
-        logger.error(f"Ошибка при удалении ликвидности для кошелька {wallet_address}: {e}")
+        logger.error(f"Ошибка при сборе комиссий для кошелька {wallet_address}: {e}")
         raise
 
 @retry_on_exception()
@@ -108,19 +110,24 @@ def remove_liquidity(web3, wallet_address, private_key, token_id):
     """
     logger = setup_logger(wallet_address)
     try:
+        logger.info(f"Удаление ликвидности для позиции с ID {token_id} начато.")
         liquidity = get_position_liquidity(POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH, token_id, wallet_address)
         position_manager = get_contract(POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH)
         # Подготовка транзакции для decreaseLiquidity
-        decrease_liquidity_txn = position_manager.functions.decreaseLiquidity({
+        params = {
             "tokenId": token_id,
             "liquidity": liquidity,
             "amount0Min": 0,
             "amount1Min": 0,
             "deadline": web3.eth.get_block('latest')['timestamp'] + 60
-        }).build_transaction({
+        }
+        gas_estimate = int(position_manager.functions.decreaseLiquidity(params).estimate_gas({
+            "from": wallet_address
+        }) * GAS_PRICE_MULTIPLIER)
+        decrease_liquidity_txn = position_manager.functions.decreaseLiquidity(params).build_transaction({
             "from": wallet_address,
-            "gasPrice": int(web3.eth.gas_price * GAS_PRICE_MULTIPLIER),
-            "gas": GAS_LIMIT,
+            "gasPrice": web3.eth.gas_price,
+            "gas": gas_estimate,
             "nonce": web3.eth.get_transaction_count(wallet_address) + 1
         })
 
@@ -189,7 +196,7 @@ def add_liquidity(web3, wallet_address, private_key, new_range_lower, new_range_
             "value": Web3.to_wei(amount0, 'ether'),
             "gasPrice": int(web3.eth.gas_price * GAS_PRICE_MULTIPLIER),
             "nonce": web3.eth.get_transaction_count(wallet_address),
-            "gas": GAS_LIMIT
+            "gas": 1000000
         })
 
         signed_tx = web3.eth.account.sign_transaction(add_liquidity_txn, private_key=private_key)

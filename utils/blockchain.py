@@ -14,8 +14,7 @@ RPC_URL_2 = config["RPC_URL_2"]
 RPC_URL_3 = config["RPC_URL_3"]
 RPC_RETRY_LIMIT = int(os.getenv("RPC_RETRY_LIMIT", 3))
 
-GAS_LIMIT = int(os.getenv("GAS_LIMIT"))
-GAS_PRICE_MULTIPLIER = float(os.getenv("GAS_PRICE_MULTIPLIER", 1.1))
+GAS_PRICE_MULTIPLIER = float(os.getenv("GAS_PRICE_MULTIPLIER", 1.2))
 POSITION_MANAGER_ABI_PATH = os.getenv('POSITION_MANAGER_ABI_PATH', 'utils/position_manager_abi.json')
 POSITION_MANAGER_ADDRESS = config['POSITION_MANAGER_ADDRESS']
 
@@ -110,6 +109,7 @@ def get_position_liquidity(position_manager_address, abi_path, position_id, wall
     else:
         return 0
 
+
 @retry_on_exception()
 def check_allowance(wallet_address, position_manager_address, token_address, erc20_abi_path):
     """
@@ -148,13 +148,21 @@ def approve_token(wallet_address, private_key, position_manager_address, token_a
     try:
         amount_to_approve = 2 ** 256 - 1
         erc20_contract = get_contract(token_address, erc20_abi_path)
+
+        gas_estimate = int(erc20_contract.functions.approve(
+            Web3.to_checksum_address(position_manager_address),
+            amount_to_approve
+        ).estimate_gas({
+            "from": wallet_address
+        }) * GAS_PRICE_MULTIPLIER)
+
         transaction = erc20_contract.functions.approve(
             Web3.to_checksum_address(position_manager_address),
             amount_to_approve
-        ).build_transaction({
+            ).build_transaction({
             'from': Web3.to_checksum_address(wallet_address),
             'nonce': web3.eth.get_transaction_count(wallet_address),
-            'gas': GAS_LIMIT,
+            'gas': gas_estimate,
             'gasPrice': int(web3.eth.gas_price * GAS_PRICE_MULTIPLIER)
         })
 
