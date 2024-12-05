@@ -14,8 +14,8 @@ RPC_URL_2 = config["RPC_URL_2"]
 RPC_URL_3 = config["RPC_URL_3"]
 RPC_RETRY_LIMIT = int(os.getenv("RPC_RETRY_LIMIT", 3))
 
-GAS_LIMIT = os.getenv("GAS_LIMIT")
-GAS_PRICE_MULTIPLIER = os.getenv("GAS_PRICE_MULTIPLIER", 1.1)
+GAS_LIMIT = int(os.getenv("GAS_LIMIT"))
+GAS_PRICE_MULTIPLIER = float(os.getenv("GAS_PRICE_MULTIPLIER", 1.1))
 POSITION_MANAGER_ABI_PATH = os.getenv('POSITION_MANAGER_ABI_PATH', 'utils/position_manager_abi.json')
 POSITION_MANAGER_ADDRESS = config['POSITION_MANAGER_ADDRESS']
 

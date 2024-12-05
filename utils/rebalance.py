@@ -61,17 +61,16 @@ def calculate_new_range(current_price, range_width, wallet_address):
     return new_lower, new_upper
 
 @retry_on_exception()
-def remove_liquidity(web3, wallet_address, private_key, token_id):
+def collect_fees(web3, wallet_address, private_key, token_id):
     """
-    Удаляет ликвидность из текущей позиции.
-    :param web3: Экземпляр Web3 для взаимодействия с блокчейном.
-    :param wallet_address: Адрес кошелька.
-    :param private_key: Приватный ключ кошелька.
-    :param token_id: ID позиции NFT на Uniswap.
-    """
+        Собирает комиссии из текущей позиции.
+        :param web3: Экземпляр Web3 для взаимодействия с блокчейном.
+        :param wallet_address: Адрес кошелька.
+        :param private_key: Приватный ключ кошелька.
+        :param token_id: ID позиции NFT на Uniswap.
+        """
     logger = setup_logger(wallet_address)
     try:
-        liquidity = get_position_liquidity(POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH, token_id, wallet_address)
         # Получаем контракт
         position_manager = get_contract(POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH)
         logger.info(f"Удаление ликвидности для позиции с ID {token_id} начато.")
@@ -79,7 +78,7 @@ def remove_liquidity(web3, wallet_address, private_key, token_id):
         collect_txn = position_manager.functions.collect({
             "tokenId": token_id,
             "recipient": wallet_address,
-            "amount0Max" : 2 ** 128 - 1,
+            "amount0Max": 2 ** 128 - 1,
             "amount1Max": 2 ** 128 - 1
         }).build_transaction({
             "from": wallet_address,
@@ -93,7 +92,24 @@ def remove_liquidity(web3, wallet_address, private_key, token_id):
         # Отправка транзакции collect
         collect_txn_hash = web3.eth.send_raw_transaction(signed_collect_txn.raw_transaction).hex()
         logger.info(f"Комиссии успешно собраны. Хеш транзакции: {collect_txn_hash}")
+        return 1
+    except Exception as e:
+        logger.error(f"Ошибка при удалении ликвидности для кошелька {wallet_address}: {e}")
+        raise
 
+@retry_on_exception()
+def remove_liquidity(web3, wallet_address, private_key, token_id):
+    """
+    Удаляет ликвидность из текущей позиции.
+    :param web3: Экземпляр Web3 для взаимодействия с блокчейном.
+    :param wallet_address: Адрес кошелька.
+    :param private_key: Приватный ключ кошелька.
+    :param token_id: ID позиции NFT на Uniswap.
+    """
+    logger = setup_logger(wallet_address)
+    try:
+        liquidity = get_position_liquidity(POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH, token_id, wallet_address)
+        position_manager = get_contract(POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH)
         # Подготовка транзакции для decreaseLiquidity
         decrease_liquidity_txn = position_manager.functions.decreaseLiquidity({
             "tokenId": token_id,

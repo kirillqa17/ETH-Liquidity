@@ -1,5 +1,5 @@
 # utils/retry_decorator.py
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type, before_sleep_log
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 import logging, os
 from dotenv import load_dotenv
 load_dotenv()
@@ -32,8 +32,6 @@ def retry_on_exception(max_attempts=RPC_RETRY_LIMIT, min_wait=4, max_wait=11, lo
     :param max_wait: Максимальная задержка перед следующей попыткой (секунды).
     :param logger: Логгер для записи предупреждений перед каждой попыткой.
     """
-    if logger is None:
-        logger = logging.getLogger(__name__)
 
     return retry(
         stop=stop_after_attempt(max_attempts),

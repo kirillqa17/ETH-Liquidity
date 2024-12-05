@@ -9,7 +9,7 @@ chain = select_chain()
 
 from utils.blockchain import get_web3, get_user_position, get_position_liquidity, check_allowance, approve_token
 from utils.pricing import get_eth_price
-from utils.rebalance import should_rebalance, calculate_new_range, remove_liquidity, add_liquidity
+from utils.rebalance import should_rebalance, calculate_new_range, remove_liquidity, add_liquidity, collect_fees
 from utils.logger import setup_logger
 from utils.decryption import is_base64, decrypt_private_key, get_password
 # Загрузка настроек из .env
@@ -33,7 +33,7 @@ TOKEN1 = chain["TOKEN1"]
 def get_wallet_info_from_file(file_path="wallets.txt"):
     """
     Считывает информацию о кошельках из файла. Поддерживает как зашифрованные, так и незашифрованные ключи.
-    При обнаружении зашифрованного ключа запрашивает пароль у пользователя. При неверном пароле позволяет повторить ввод.
+    Проверяет, зашифрован ли файл, по первой строке. Если да, запрашивает пароль один раз для всех строк.
 
     :param file_path: Путь к файлу с ключами.
     :return: Список пар (адрес, приватный ключ).
@@ -46,25 +46,33 @@ def get_wallet_info_from_file(file_path="wallets.txt"):
         raise ValueError(f"Файл '{file_path}' пуст. Добавьте кошельки в файл.")
 
     with open(file_path, "r") as file:
-        for line_num, line in enumerate(file, start=1):
-            line = line.strip()
-            if not line:
-                continue
+        lines = [line.strip() for line in file if line.strip()]
+        if not lines:
+            raise ValueError(f"Файл '{file_path}' пуст. Добавьте кошельки в файл.")
 
+        # Определяем, зашифрованы ли ключи, по первой строке
+        first_line = lines[0]
+        encrypted = is_base64(first_line)
+
+        if encrypted:
+            # Запрашиваем пароль один раз
+            password = None
+            while True:
+                try:
+                    password = get_password("Введите пароль для расшифровки ключей: ").strip()
+                    # Проверяем пароль на первой строке
+                    decrypt_private_key(first_line, password)
+                    break  # Если расшифровка успешна, выходим из цикла
+                except (ValueError, UnicodeDecodeError):
+                    print("Неверный пароль, попробуйте снова.")
+                except Exception as e:
+                    raise ValueError(f"Ошибка проверки пароля: {e}")
+
+        for line_num, line in enumerate(lines, start=1):
             try:
-                if is_base64(line):
-                    # Зашифрованный ключ
-                    while True:
-                        try:
-                            password = get_password(
-                                f"Введите пароль для расшифровки ключа: ").strip()
-                            private_key = decrypt_private_key(line, password)
-                            break  # Успешно расшифровали, выходим из цикла
-                        except (ValueError, UnicodeDecodeError) as e:
-                            print("Неверный пароль или ошибка расшифровки, попробуйте снова.")
-                        except Exception as e:
-                            print(f"Неожиданная ошибка при расшифровке ключа (строка {line_num}): {e}")
-                            break  # Прерываем цикл при неизвестной ошибке
+                if encrypted:
+                    # Расшифровываем приватный ключ
+                    private_key = decrypt_private_key(line, password)
                 else:
                     # Незашифрованный ключ
                     private_key = line
@@ -99,27 +107,33 @@ def main():
     wallets = get_wallet_info_from_file()
     # Создаём логгеры для каждого кошелька
     loggers = {address: create_logger(address) for address, _ in wallets}
+    for wallet_address, private_key in wallets:
+        if not check_allowance(wallet_address, POSITION_MANAGER_ADDRESS, TOKEN1, ERC20_ABI):
+            txn = approve_token(wallet_address, private_key, POSITION_MANAGER_ADDRESS, TOKEN1, ERC20_ABI)
+            loggers[wallet_address].info(f"Approve отправлена для кошелька {wallet_address} хэш транзакции {txn}")
 
+    first_wallet = wallets[0][0]
     while True:
-        for wallet_address, private_key in wallets:
-            try:
-                if not check_allowance(wallet_address, POSITION_MANAGER_ADDRESS, TOKEN1, ERC20_ABI):
-                    txn = approve_token(wallet_address, private_key, POSITION_MANAGER_ADDRESS, TOKEN1, ERC20_ABI)
-                    loggers[wallet_address].info(f"Approve отправлена для кошелька {wallet_address} хэш транзакции {txn}")
-                # Получаем текущую цену ETH
-                current_price = get_eth_price()
-                if current_price is None:
-                    loggers[wallet_address].warning(
-                        f"Не удалось получить текущую цену. Повтор через {PRICE_CHECK_INTERVAL} секунд.")
-                    time.sleep(PRICE_CHECK_INTERVAL)
-                    continue
+        current_price = None
+        try:
+            # Получаем текущую цену ETH
+            current_price = get_eth_price()
+            if current_price is None:
+                loggers[first_wallet].warning(
+                    f"Не удалось получить текущую цену. Повтор через {PRICE_CHECK_INTERVAL} секунд.")
+                time.sleep(PRICE_CHECK_INTERVAL)
+                continue
+        except Exception as e:
+            loggers[first_wallet].error(f"Ошибка при получении цены ETH: {e}")
 
-                amount0, amount1 = None, None
+        amount0, amount1 = None, None
 
-                loggers[wallet_address].info(f"Текущая цена ETH: ${current_price}")
+        loggers[first_wallet].info(f"Текущая цена ETH: ${current_price}")
 
-                # Проверка необходимости ребалансировки
-                if should_rebalance(current_price, RANGE_LOWER, RANGE_HIGHER, THRESHOLD_PERCENT, wallet_address):
+        # Проверка необходимости ребалансировки
+        if should_rebalance(current_price, RANGE_LOWER, RANGE_HIGHER, THRESHOLD_PERCENT, first_wallet):
+            for wallet_address, private_key in wallets:
+                try:
                     loggers[wallet_address].info("Ребалансировка начата...")
                     token_id = get_user_position(POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH, wallet_address)
                     # Удаление текущей ликвидности
@@ -141,7 +155,10 @@ def main():
                                 f"Ошибка для кошелька {wallet_address}: Нет текущей ликвидности")
                             continue
                     else:
-                        remove_liquidity(web3, wallet_address, private_key, token_id)
+                        # Сбор комиссий
+                        if collect_fees(web3, wallet_address, private_key, token_id):
+                            # Удаление ликвидности
+                            remove_liquidity(web3, wallet_address, private_key, token_id)
                     # Расчёт нового диапазона
                     new_range_lower, new_range_upper = calculate_new_range(current_price, RANGE_WIDTH, wallet_address)
                     if amount0 == None:
@@ -156,11 +173,11 @@ def main():
 
                     loggers[wallet_address].info(
                         f"Ребалансировка завершена. Новый диапазон: ${new_range_lower} - ${new_range_upper}")
-                else:
-                    loggers[wallet_address].info("Ребалансировка не требуется. Ожидание следующей проверки.")
+                except Exception as e:
+                    loggers[wallet_address].error(f"Ошибка для кошелька {wallet_address}: {e}")
+        else:
+            loggers[first_wallet].info("Ребалансировка не требуется. Ожидание следующей проверки.")
 
-            except Exception as e:
-                loggers[wallet_address].error(f"Ошибка для кошелька {wallet_address}: {e}")
 
         # Задержка между проверками
         time.sleep(PRICE_CHECK_INTERVAL)
