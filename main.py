@@ -103,7 +103,7 @@ def main():
     if current_chain_id not in [8453, 1]:
         raise ValueError("Вы подключены не к поддерживаемой сети. Проверьте RPC!")
 
-
+    choice = 0
     # Считываем кошельки
     wallets = get_wallet_info_from_file()
     # Создаём логгеры для каждого кошелька
@@ -145,14 +145,18 @@ def main():
                     token_id = get_user_position(POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH, wallet_address)
                     # Удаление текущей ликвидности
                     if not (get_position_liquidity(POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI_PATH, token_id, wallet_address)):
-                        user_answer = input(
-                            f"У вас нет текущей ликвидности на кошельке {wallet_address}, желаете, чтобы ее добавил бот? (да/нет): ").strip().lower()
-                        if user_answer in ["да", "yes", "y", "1"]:
-                            amount0 = AMOUNT0
+                        if choice != 1:
+                            user_answer = input(
+                                f"На некоторых кошельках нет текущей ликвидности, желаете чтобы ее добавил бот? (да/нет) : ").strip().lower()
+                            if user_answer in ["да", "yes", "y", "1"]:
+                                amount0 = AMOUNT0
+                                choice = 1
+                            else:
+                                loggers[wallet_address].error(
+                                    f"Ошибка для кошелька {wallet_address}: Нет текущей ликвидности")
+                                continue
                         else:
-                            loggers[wallet_address].error(
-                                f"Ошибка для кошелька {wallet_address}: Нет текущей ликвидности")
-                            continue
+                            amount0 = AMOUNT0
                     else:
                         # Сбор комиссий
                         if collect_fees(web3, wallet_address, private_key, token_id):
@@ -171,7 +175,7 @@ def main():
                     RANGE_LOWER, RANGE_HIGHER = new_range_lower, new_range_upper
 
                     loggers[wallet_address].info(
-                        f"Ребалансировка завершена. Новый диапазон: ${new_range_lower} - ${new_range_upper}")
+                        f"Ребалансировка для кошелька {wallet_address} завершена. Новый диапазон: ${new_range_lower} - ${new_range_upper}")
                 except Exception as e:
                     loggers[wallet_address].error(f"Ошибка для кошелька {wallet_address}: {e}")
         else:
