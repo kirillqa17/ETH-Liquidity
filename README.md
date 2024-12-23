@@ -1,57 +1,61 @@
-Установка и настройка  
-1. Установите зависимости и первое подтверждение транзакции
-Для работы скрипта вам потребуется Python 3.8 или выше. Установите все необходимые зависимости, выполнив следующую команду:  
 
-pip install -r requirements.txt  
+# ETH-Liquidity
 
-2. Создайте файл wallets.txt  
-Добавьте приватные ключи кошельков в файл wallets.txt.  
-Пример содержимого файла:  
+**ETH-Liquidity** is a Python script for managing liquidity in UniswapV3 pools. It automatically rebalances positions using provided private keys and configuration parameters.
 
-<PRIVATE_KEY_1>  
-<PRIVATE_KEY_2>  
-  
-Если ключ зашифрован (Base64):
+## Requirements
 
-<ENCRYPTED_PRIVATE_KEY_1>  
-<ENCRYPTED_PRIVATE_KEY_2>  
-Если ключи зашифрованы, программа запросит пароль при запуске.  
+- Python version 3.8 or higher.
 
-3. Настройте .env файл  
-Если позиция уже есть в пуле, то необходимо ввести нижнюю и верхнюю границы цены в .env.
-Так же необходимо ввести AMOUNT0 для автоматической ребалансировки.
-Замените все подписанные переменные для сети Base или Mainnet.  
-Убедитесь, что у вас есть доступ к контракту по адресу POSITION_MANAGER_ADDRESS и ABI в указанном пути.  
+## Installation
 
-4. Запустите программу  
-Для запуска программы выполните:  
+1. **Clone the repository:**
 
-python main.py  
+   ```bash
+   git clone https://github.com/kirillqa17/ETH-Liquidity.git
+   cd ETH-Liquidity
+   ```
 
-В соответсвенной директории
+2. **Install dependencies:**
 
-Функционал  
-Обработка кошельков:  
-Скрипт поддерживает как незашифрованные, так и зашифрованные приватные ключи. При использовании зашифрованных ключей требуется ввод пароля.  
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-Автоматическая ребалансировка:  
-Программа проверяет текущую цену ETH в диапазоне и автоматически удаляет/добавляет ликвидность, если цена выходит за установленные пороги.  
+## Configuration
 
-Ручной ввод ликвидности:  
-Если ликвидность отсутствует, пользователь может ввести значение amount0 (WETH) вручную.  
+1. **`.env` file:**
 
-Логи:  
-Логи для каждого кошелька сохраняются в отдельные файлы в папке, указанной в LOG_FOLDER.  
+   Create a `.env` file in the root directory and add the following variables
 
-Возможные ошибки  
-Проблема:  
-Файл 'wallets.txt' пуст. Добавьте кошельки в файл.  
-Решение:  
-Убедитесь, что файл wallets.txt содержит хотя бы один приватный ключ.  
 
-Проблема:
-ABI Not Found!
-Found 1 element(s) named `positions` that accept 1 argument(s).
-The provided arguments are not valid.
-Решение:
-Если это Ваша первая позиция на данном кошельке, то не обращайте внимания.
+2. **`wallets.txt` file:**
+
+   Add private keys of the wallets to the `wallets.txt` file, each on a new line.
+
+   Example file content:
+
+   ```
+   <PRIVATE_KEY_1>
+   <PRIVATE_KEY_2>
+   ```
+
+   If the keys are encrypted (Base64), the program will prompt for a password on startup.
+
+## Usage
+
+Run the program with the command:
+
+```bash
+python main.py
+```
+
+Ensure you are in the correct directory before executing this command.
+
+## Logs
+
+The program maintains a log file, recording important events and errors. Logs are saved in the `<YOUR_WALLET_ADDRESS>.log` file in the root directory.
+
+## Security
+
+- **Private Keys:** Keep the `wallets.txt` file secure and do not share it with third parties.
